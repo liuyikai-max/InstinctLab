@@ -25,7 +25,7 @@ from instinctlab.sensors import get_link_prim_targets
 
 G1_CFG = G1_29DOF_TORSOBASE_POPSICLE_CFG
 
-MOTION_FOLDER = "{AbsolutePathOfYourDataDirectory}"
+MOTION_FOLDER = "/home/agiuser/Downloads/20251116_50cm_kneeClimbStep1/50cm_kneeClimbStep_noWall"
 
 
 @configclass

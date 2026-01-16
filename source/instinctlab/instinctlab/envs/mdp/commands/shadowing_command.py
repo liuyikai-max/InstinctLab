@@ -37,6 +37,7 @@ if TYPE_CHECKING:
         RotationRefCommandCfg,
         ShadowingCommandBaseCfg,
         TimeToTargetCommandCfg,
+        PhaseSignalRefCommandCfg,
     )
 
 
@@ -1765,6 +1766,43 @@ class TimeToTargetCommand(ShadowingCommandBase):
     cfg: TimeToTargetCommandCfg
 
     def __init__(self, cfg: TimeToTargetCommandCfg, env: ManagerBasedRLEnv):
+        """Initialize the command term class.
+
+        ## NOTE
+            There is no mask for this command. The invalid value should be set to -1.
+
+        Args:
+            cfg: The configuration parameters for the command term.
+            env: The environment object.
+        """
+        # initialize the base class
+        super().__init__(cfg, env)
+        # generate the command tensor buffer
+        data_dims = (1,)
+        self._command = torch.ones(
+            (self.num_envs, self._motion_reference.num_frames, *data_dims),
+            device=self.device,
+        )
+        # generate state buffer in case we need additional frame as a pseudo command frame
+        if self.cfg.current_state_command:
+            self._current_state = torch.zeros(
+                (self.num_envs, 1, *data_dims),
+                device=self.device,
+            )
+        self._update_command()
+
+    def _update_command_by_env_ids(self, env_ids: Sequence[int] | torch.Tensor):
+        self._command[env_ids, :, 0] = self._motion_reference.data.time_to_target_frame[
+            env_ids
+        ] - self._motion_reference.time_passed_from_update[env_ids].unsqueeze(-1)
+
+
+class PhaseSignalRefCommand(ShadowingCommandBase):
+    """ """
+
+    cfg: PhaseSignalRefCommandCfg
+
+    def __init__(self, cfg: PhaseSignalRefCommandCfg, env: ManagerBasedRLEnv):
         """Initialize the command term class.
 
         ## NOTE

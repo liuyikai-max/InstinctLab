@@ -37,10 +37,7 @@ from instinctlab.motion_reference.utils import motion_interpolate_bilinear
 G1_CFG = G1_29DOF_TORSOBASE_POPSICLE_CFG
 PROPRIO_HISTORY_LENGTH = 8
 
-MOTION_FOLDER = (
-    "~/Datasets/NoKov-Marslab-Motions-instinctnpz/20251116_50cm_kneeClimbStep1"
-    # "~/Datasets/NoKov-Marslab-Motions-instinctnpz/20251116_50cm_kneeClimbStep1/20251106_diveroll4_roadRamp_noWall"
-)
+MOTION_FOLDER = "/home/agiuser/Downloads/20251116_50cm_kneeClimbStep1/50cm_kneeClimbStep_noWall"
 
 
 @configclass
@@ -99,9 +96,35 @@ motion_reference_cfg = MotionReferenceManagerCfg(
 
 
 @configclass
+class CommandCfg:
+    phase_signal_ref_command = instinct_mdp.PhaseSignalRefCommandCfg(current_state_command=False,)
+    position_ref_command = instinct_mdp.PositionRefCommandCfg(
+        realtime_mode=True,
+        current_state_command=False,
+        anchor_frame="robot",
+    )
+    position_b_ref_command = instinct_mdp.PositionRefCommandCfg(
+        realtime_mode=True,
+        current_state_command=False,
+        anchor_frame="reference",
+    )
+    rotation_ref_command = instinct_mdp.RotationRefCommandCfg(
+        realtime_mode=True,
+        current_state_command=False,
+        in_base_frame=True,
+        rotation_mode="tannorm",
+    )
+    joint_pos_ref_command = instinct_mdp.JointPosRefCommandCfg(current_state_command=False)
+    joint_vel_ref_command = instinct_mdp.JointVelRefCommandCfg(current_state_command=False)
+
+
+@configclass
 class ObservationsCfg:
     @configclass
     class PolicyObsCfg(ObsGroupCfg):
+        # # TODO Add a monotonically increasing signal for temporal coordination
+        # phase_signal_ref = ObsTermCfg(func=mdp.generated_commands, params={"command_name": "phase_signal_ref_command"})
+        
         depth_image = ObsTermCfg(
             func=instinct_mdp.visualizable_image,
             # params={"sensor_cfg": SceneEntityCfg("camera"), "data_type": "distance_to_image_plane"},
@@ -166,25 +189,25 @@ class ObservationsCfg:
         projected_gravity = ObsTermCfg(
             func=mdp.projected_gravity,
             noise=UniformNoiseCfg(n_min=-0.05, n_max=0.05),
-            history_length=8,
+            history_length=PROPRIO_HISTORY_LENGTH,
         )
         # base_lin_vel = ObsTermCfg(func=mdp.base_lin_vel)
         base_ang_vel = ObsTermCfg(
             func=mdp.base_ang_vel,
             noise=UniformNoiseCfg(n_min=-0.2, n_max=0.2),
-            history_length=8,
+            history_length=PROPRIO_HISTORY_LENGTH,
         )
         joint_pos = ObsTermCfg(
             func=mdp.joint_pos_rel,
             noise=UniformNoiseCfg(n_min=-0.01, n_max=0.01),
-            history_length=8,
+            history_length=PROPRIO_HISTORY_LENGTH,
         )
         joint_vel = ObsTermCfg(
             func=mdp.joint_vel_rel,
             noise=UniformNoiseCfg(n_min=-0.5, n_max=0.5),
-            history_length=8,
+            history_length=PROPRIO_HISTORY_LENGTH,
         )
-        last_action = ObsTermCfg(func=mdp.last_action, history_length=8)
+        last_action = ObsTermCfg(func=mdp.last_action, history_length=PROPRIO_HISTORY_LENGTH)
 
         def __post_init__(self):
             self.enable_corruption = False
@@ -203,6 +226,7 @@ class G1PerceptiveVaeEnvCfg(perceptual_cfg.PerceptiveShadowingEnvCfg):
         motion_reference=motion_reference_cfg,
         height_scanner=None,
     )
+    # commands: CommandCfg = CommandCfg()
     observations: ObservationsCfg = ObservationsCfg()
 
     def __post_init__(self):

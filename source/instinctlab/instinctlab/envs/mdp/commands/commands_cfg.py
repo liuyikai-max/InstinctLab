@@ -28,6 +28,7 @@ from .shadowing_command import (
     RotationRefCommand,
     ShadowingCommandBase,
     TimeToTargetCommand,
+    PhaseSignalRefCommand,
 )
 
 
@@ -328,3 +329,9 @@ class TimeToTargetCommandCfg(ShadowingCommandBaseCfg):
     """ In real-time mode, the time-to-target will always be the time currently to the target frame.
     In non-real-time mode, the time-to-target will be the time to the target frame at the time of motion reference refresh.
     """
+
+
+@configclass
+class PhaseSignalRefCommandCfg(ShadowingCommandBaseCfg):
+    class_type: type = PhaseSignalRefCommand
+    """ Command for phase signal reference. The phase signal is a monotonically increasing signal."""

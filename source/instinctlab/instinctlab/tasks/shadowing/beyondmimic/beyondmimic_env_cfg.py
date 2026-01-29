@@ -566,6 +566,6 @@ class BeyondMimicEnvCfg(InstinctLabRLEnvCfg):
         self.sim.dt = 1.0 / 50.0 / self.decimation
         self.sim.render_interval = self.decimation
         self.sim.physics_material = self.scene.terrain.physics_material
-        self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**15
+        self.sim.physx.gpu_max_rigid_patch_count = 20 * 2**16
 
         self.run_name = "BeyondMimic"

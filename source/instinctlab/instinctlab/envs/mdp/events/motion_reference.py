@@ -236,6 +236,7 @@ def _apply_rigid_object_states(
         return
 
     # Individual objects case
+    scene_keys = set(env.scene.keys())
     for obj_idx, entity_name in enumerate(scene_object_names):
         if obj_idx >= object_validity.shape[1]:
             break
@@ -244,7 +245,9 @@ def _apply_rigid_object_states(
         if not valid_mask.any():
             continue
 
-        if entity_name not in env.scene:
+        # Use scene.keys() for membership check; env.scene[key] raises KeyError for invalid keys
+        # (e.g. numeric strings like '0' from object index slots that are not scene entity names)
+        if entity_name not in scene_keys:
             continue
         asset = env.scene[entity_name]
         if not isinstance(asset, RigidObject):

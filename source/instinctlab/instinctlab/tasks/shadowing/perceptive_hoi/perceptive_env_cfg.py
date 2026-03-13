@@ -548,6 +548,7 @@ class EventsCfg:
         interval_range_s=(0.02, 0.02),  # every env step
         params={
             "motion_ref_cfg": SceneEntityCfg("motion_reference"),
+            "invalid_object_pos": (0.0, 0.0, -1.0),  # set to (x, y, z) to teleport invalid objects; None skips them
         },
     )
     bin_fail_counter_smoothing = EventTermCfg(

@@ -7,6 +7,7 @@ from isaaclab.assets import RigidObjectCfg
 from isaaclab.envs import ViewerCfg
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.ray_caster import MultiMeshRayCasterCfg
+from isaaclab.sim.schemas import schemas_cfg
 from isaaclab.utils import configclass
 
 import instinctlab.envs.mdp as instinct_mdp
@@ -28,7 +29,7 @@ from instinctlab.sim import MeshFileCfg
 
 G1_CFG = G1_29DOF_TORSOBASE_POPSICLE_CFG
 
-OMOMO_DATASET_PATH = "/localhdd/Datasets/OMOMO"
+OMOMO_DATASET_PATH = "/localhdd/Datasets/OMOMO/retargeted"
 
 MESH_FILE_PATHS = {
     "floorlamp": "/localhdd/Datasets/OMOMO/data/captured_objects/floorlamp_cleaned_simplified.obj",
@@ -37,6 +38,14 @@ MESH_FILE_PATHS = {
     "trashcan": "/localhdd/Datasets/OMOMO/data/captured_objects/trashcan_cleaned_simplified.obj",
     "smalltable": "/localhdd/Datasets/OMOMO/data/captured_objects/smalltable_cleaned_simplified.obj",
     "suitcase": "/localhdd/Datasets/OMOMO/data/captured_objects/suitcase_cleaned_simplified.obj",
+}
+MESH_FILE_SCALES = {
+    "floorlamp": (1.55 * 0.3793, 1.55 * 0.3793, 1.55 * 0.3793),
+    "largebox": (1.55 * 0.3486, 1.55 * 0.3486, 1.55 * 0.3486),
+    "whitechair": (1.55 * 0.3129, 1.55 * 0.3129, 1.55 * 0.3129),
+    "trashcan": (1.55 * 0.2326, 1.55 * 0.2326, 1.55 * 0.2326),
+    "smalltable": (1.55 * 0.0162, 1.55 * 0.0162, 1.55 * 0.0162),
+    "suitcase": (1.55 * 0.3672, 1.55 * 0.3672, 1.55 * 0.3672),
 }
 
 
@@ -117,7 +126,9 @@ class G1PerceptiveHoiShadowingEnvCfg(perceptual_cfg.PerceptiveHoiShadowingEnvCfg
                         asset_path=mesh_file_path,
                         mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
                         collision_props=sim_utils.CollisionPropertiesCfg(),
-                        rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+                        rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+                        mesh_collision_props=schemas_cfg.ConvexHullPropertiesCfg(),
+                        scale=MESH_FILE_SCALES[object_name],
                     ),
                 ),
             )
@@ -196,9 +207,9 @@ class G1PerceptiveHoiShadowingEnvCfg_PLAY(G1PerceptiveHoiShadowingEnvCfg):
         self.terminations.out_of_border = None
 
         # put the reference in scene and move the robot elsewhere and visualize the reference
-        # self.events.reset_robot.params["position_offset"] = [0.0, 1.0, 2.0]
-        # self.scene.motion_reference.visualizing_robot_offset = (0.0, 0.0, 0.0)
-        # self.viewer.asset_name = "robot_reference"
+        self.events.reset_robot.params["position_offset"] = [0.0, 1.0, 2.0]
+        self.scene.motion_reference.visualizing_robot_offset = (0.0, 0.0, 0.0)
+        self.viewer.asset_name = "robot_reference"
 
         # remove some randomizations
         self.events.add_joint_default_pos = None

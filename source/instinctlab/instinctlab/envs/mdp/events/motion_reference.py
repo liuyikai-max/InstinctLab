@@ -189,6 +189,7 @@ def _apply_rigid_object_states(
     object_validity: torch.Tensor,
     scene_object_names: list[str],
     rigid_object_collection_cfg: SceneEntityCfg | None,
+    invalid_object_pos: tuple[float, float, float] | None = None,
 ):
     """Helper to apply rigid object states to simulation.
 
@@ -202,10 +203,16 @@ def _apply_rigid_object_states(
         object_validity: Object validity mask [N_env, N_obj].
         scene_object_names: List of object names in the scene.
         rigid_object_collection_cfg: Configuration for rigid object collection (optional).
+        invalid_object_pos: If not None, set invalid objects to this position (e.g. to hide them).
+            If None, invalid objects are not updated.
     """
     # Ensure env_ids is on the same device as data
     if env_ids.device != object_pos.device:
         env_ids = env_ids.to(object_pos.device)
+
+    device = object_pos.device
+    identity_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=device, dtype=object_quat.dtype)
+    zero_vel = torch.zeros(3, device=device, dtype=object_lin_vel.dtype)
 
     if rigid_object_collection_cfg is not None:
         collection: RigidObjectCollection = env.scene[rigid_object_collection_cfg.name]
@@ -214,25 +221,40 @@ def _apply_rigid_object_states(
 
         for obj_idx in range(num_objects):
             valid_mask = object_validity[:, obj_idx]
-            if not valid_mask.any():
-                continue
 
-            valid_env_ids = env_ids[valid_mask]
+            # Update valid objects
+            if valid_mask.any():
+                valid_env_ids = env_ids[valid_mask].contiguous()
 
-            # Prepare pose and velocity
-            root_pose = torch.cat(
-                [object_pos[valid_mask, obj_idx], object_quat[valid_mask, obj_idx]],
-                dim=-1,
-            )
-            root_velocity = torch.cat(
-                [object_lin_vel[valid_mask, obj_idx], object_ang_vel[valid_mask, obj_idx]],
-                dim=-1,
-            )
+                # Prepare pose and velocity
+                root_pose = torch.cat(
+                    [object_pos[valid_mask, obj_idx], object_quat[valid_mask, obj_idx]],
+                    dim=-1,
+                )
+                root_velocity = torch.cat(
+                    [object_lin_vel[valid_mask, obj_idx], object_ang_vel[valid_mask, obj_idx]],
+                    dim=-1,
+                )
 
-            collection.write_object_link_pose_to_sim(root_pose.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx)
-            collection.write_object_link_velocity_to_sim(
-                root_velocity.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx
-            )
+                collection.write_object_link_pose_to_sim(root_pose.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx)
+                collection.write_object_link_velocity_to_sim(
+                    root_velocity.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx
+                )
+
+            # Optionally set invalid objects to a fixed position
+            if invalid_object_pos is not None and (~valid_mask).any():
+                invalid_env_ids = env_ids[~valid_mask].contiguous()
+                n_invalid = invalid_env_ids.shape[0]
+                invalid_pos = torch.tensor(
+                    invalid_object_pos, device=device, dtype=object_pos.dtype
+                ).unsqueeze(0).expand(n_invalid, 3)
+                invalid_quat = identity_quat.unsqueeze(0).expand(n_invalid, 4)
+                invalid_lin_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
+                invalid_ang_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
+                root_pose = torch.cat([invalid_pos, invalid_quat], dim=-1)
+                root_velocity = torch.cat([invalid_lin_vel, invalid_ang_vel], dim=-1)
+                collection.write_object_link_pose_to_sim(root_pose.unsqueeze(1), env_ids=invalid_env_ids, object_ids=obj_idx)
+                collection.write_object_link_velocity_to_sim(root_velocity.unsqueeze(1), env_ids=invalid_env_ids, object_ids=obj_idx)
         return
 
     # Individual objects case
@@ -240,10 +262,6 @@ def _apply_rigid_object_states(
     for obj_idx, entity_name in enumerate(scene_object_names):
         if obj_idx >= object_validity.shape[1]:
             break
-
-        valid_mask = object_validity[:, obj_idx]
-        if not valid_mask.any():
-            continue
 
         # Use scene.keys() for membership check; env.scene[key] raises KeyError for invalid keys
         # (e.g. numeric strings like '0' from object index slots that are not scene entity names)
@@ -253,19 +271,38 @@ def _apply_rigid_object_states(
         if not isinstance(asset, RigidObject):
             continue
 
-        valid_env_ids = env_ids[valid_mask]
+        valid_mask = object_validity[:, obj_idx]
 
-        root_pose = torch.cat(
-            [object_pos[valid_mask, obj_idx], object_quat[valid_mask, obj_idx]],
-            dim=-1,
-        )
-        root_velocity = torch.cat(
-            [object_lin_vel[valid_mask, obj_idx], object_ang_vel[valid_mask, obj_idx]],
-            dim=-1,
-        )
+        # Update valid objects
+        if valid_mask.any():
+            valid_env_ids = env_ids[valid_mask].contiguous()
 
-        asset.write_root_pose_to_sim(root_pose, env_ids=valid_env_ids)
-        asset.write_root_velocity_to_sim(root_velocity, env_ids=valid_env_ids)
+            root_pose = torch.cat(
+                [object_pos[valid_mask, obj_idx], object_quat[valid_mask, obj_idx]],
+                dim=-1,
+            )
+            root_velocity = torch.cat(
+                [object_lin_vel[valid_mask, obj_idx], object_ang_vel[valid_mask, obj_idx]],
+                dim=-1,
+            )
+
+            asset.write_root_pose_to_sim(root_pose, env_ids=valid_env_ids)
+            asset.write_root_velocity_to_sim(root_velocity, env_ids=valid_env_ids)
+
+        # Optionally set invalid objects to a fixed position
+        if invalid_object_pos is not None and (~valid_mask).any():
+            invalid_env_ids = env_ids[~valid_mask].contiguous()
+            n_invalid = invalid_env_ids.shape[0]
+            invalid_pos = torch.tensor(
+                invalid_object_pos, device=device, dtype=object_pos.dtype
+            ).unsqueeze(0).expand(n_invalid, 3)
+            invalid_quat = identity_quat.unsqueeze(0).expand(n_invalid, 4)
+            invalid_lin_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
+            invalid_ang_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
+            root_pose = torch.cat([invalid_pos, invalid_quat], dim=-1)
+            root_velocity = torch.cat([invalid_lin_vel, invalid_ang_vel], dim=-1)
+            asset.write_root_pose_to_sim(root_pose, env_ids=invalid_env_ids)
+            asset.write_root_velocity_to_sim(root_velocity, env_ids=invalid_env_ids)
 
 
 def reset_rigid_objects_state_by_reference(
@@ -288,16 +325,20 @@ def reset_rigid_objects_state_by_reference(
     if not scene_object_names:
         return
 
+    # init_state is already indexed by env_ids (get_init_reference_state returns state[env_ids]),
+    # so its tensors have shape [len(env_ids), ...] with row i mapping to env_ids[i].
+    # Do NOT index again with env_ids—that treats env IDs (e.g. 2) as positional indices
+    # and causes out-of-bounds when a subset of envs reset (e.g. env_ids=[2] → tensor has 1 row).
     env_ids_t = torch.as_tensor(env_ids, device=init_state.object_pos_w.device)
 
     _apply_rigid_object_states(
         env,
         env_ids_t,
-        init_state.object_pos_w[env_ids_t],
-        init_state.object_quat_w[env_ids_t],
-        init_state.object_lin_vel_w[env_ids_t],
-        init_state.object_ang_vel_w[env_ids_t],
-        init_state.object_validity[env_ids_t],
+        init_state.object_pos_w,
+        init_state.object_quat_w,
+        init_state.object_lin_vel_w,
+        init_state.object_ang_vel_w,
+        init_state.object_validity,
         scene_object_names,
         rigid_object_collection_cfg,
     )
@@ -308,10 +349,15 @@ def update_rigid_objects_state_by_reference(
     env_ids: torch.Tensor,
     motion_ref_cfg: SceneEntityCfg = SceneEntityCfg("motion_reference"),
     rigid_object_collection_cfg: SceneEntityCfg | None = None,
+    invalid_object_pos: tuple[float, float, float] | None = None,
 ):
     """Set rigid object states from the current HOI reference frame every step.
 
     This function uses object index order and ignores object-name matching.
+
+    Args:
+        invalid_object_pos: If not None, set invalid (non-visible) objects to this position
+            (e.g. to hide them far from the scene). If None, invalid objects are not updated.
     """
     motion_ref: MotionReferenceManager = env.scene[motion_ref_cfg.name]
     data: HoiMotionReferenceData = motion_ref.data
@@ -325,17 +371,23 @@ def update_rigid_objects_state_by_reference(
     ):
         return
 
+    # Always use all env ids to avoid block index / out-of-bounds when interval event passes a subset.
+    # Object pose updates must run for all envs to keep motion reference in sync.
+    num_envs = env.scene.num_envs
+    all_env_ids = torch.arange(num_envs, device=data.object_pos_w.device, dtype=torch.long)
+
     # data shape is [N, T, O, ...]; use the first target frame.
     _apply_rigid_object_states(
         env,
-        env_ids,
-        data.object_pos_w[env_ids, 0],
-        data.object_quat_w[env_ids, 0],
-        data.object_lin_vel_w[env_ids, 0],
-        data.object_ang_vel_w[env_ids, 0],
-        data.object_validity[env_ids, 0],
+        all_env_ids,
+        data.object_pos_w[:, 0],
+        data.object_quat_w[:, 0],
+        data.object_lin_vel_w[:, 0],
+        data.object_ang_vel_w[:, 0],
+        data.object_validity[:, 0],
         scene_object_names,
         rigid_object_collection_cfg,
+        invalid_object_pos,
     )
 
 

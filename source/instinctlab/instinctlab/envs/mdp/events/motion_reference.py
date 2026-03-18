@@ -236,7 +236,9 @@ def _apply_rigid_object_states(
                     dim=-1,
                 )
 
-                collection.write_object_link_pose_to_sim(root_pose.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx)
+                collection.write_object_link_pose_to_sim(
+                    root_pose.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx
+                )
                 collection.write_object_link_velocity_to_sim(
                     root_velocity.unsqueeze(1), env_ids=valid_env_ids, object_ids=obj_idx
                 )
@@ -245,16 +247,22 @@ def _apply_rigid_object_states(
             if invalid_object_pos is not None and (~valid_mask).any():
                 invalid_env_ids = env_ids[~valid_mask].contiguous()
                 n_invalid = invalid_env_ids.shape[0]
-                invalid_pos = torch.tensor(
-                    invalid_object_pos, device=device, dtype=object_pos.dtype
-                ).unsqueeze(0).expand(n_invalid, 3)
+                invalid_pos = (
+                    torch.tensor(invalid_object_pos, device=device, dtype=object_pos.dtype)
+                    .unsqueeze(0)
+                    .expand(n_invalid, 3)
+                )
                 invalid_quat = identity_quat.unsqueeze(0).expand(n_invalid, 4)
                 invalid_lin_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
                 invalid_ang_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
                 root_pose = torch.cat([invalid_pos, invalid_quat], dim=-1)
                 root_velocity = torch.cat([invalid_lin_vel, invalid_ang_vel], dim=-1)
-                collection.write_object_link_pose_to_sim(root_pose.unsqueeze(1), env_ids=invalid_env_ids, object_ids=obj_idx)
-                collection.write_object_link_velocity_to_sim(root_velocity.unsqueeze(1), env_ids=invalid_env_ids, object_ids=obj_idx)
+                collection.write_object_link_pose_to_sim(
+                    root_pose.unsqueeze(1), env_ids=invalid_env_ids, object_ids=obj_idx
+                )
+                collection.write_object_link_velocity_to_sim(
+                    root_velocity.unsqueeze(1), env_ids=invalid_env_ids, object_ids=obj_idx
+                )
         return
 
     # Individual objects case
@@ -293,9 +301,11 @@ def _apply_rigid_object_states(
         if invalid_object_pos is not None and (~valid_mask).any():
             invalid_env_ids = env_ids[~valid_mask].contiguous()
             n_invalid = invalid_env_ids.shape[0]
-            invalid_pos = torch.tensor(
-                invalid_object_pos, device=device, dtype=object_pos.dtype
-            ).unsqueeze(0).expand(n_invalid, 3)
+            invalid_pos = (
+                torch.tensor(invalid_object_pos, device=device, dtype=object_pos.dtype)
+                .unsqueeze(0)
+                .expand(n_invalid, 3)
+            )
             invalid_quat = identity_quat.unsqueeze(0).expand(n_invalid, 4)
             invalid_lin_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)
             invalid_ang_vel = zero_vel.unsqueeze(0).expand(n_invalid, 3)

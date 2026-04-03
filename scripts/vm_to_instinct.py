@@ -62,12 +62,39 @@ def convert_file(
 
     with h5py.File(src_file, "r") as f:
         motion_data = load_dict_from_hdf5(f)
+        
+    if "joint_names" in motion_data:
+        joint_names = motion_data["joint_names"].tolist()
+    elif "/joint_names" in motion_data:
+        joint_names = motion_data["/joint_names"].tolist()
+    else:
+        raise ValueError(f"joint_names not found in {src_file}")
+    
+    if "fps" in motion_data:
+        framerate = motion_data["fps"]
+    elif "/fps" in motion_data:
+        framerate = motion_data["/fps"]
+    else:
+        raise ValueError(f"fps not found in {src_file}")
+    
+    if len(joint_names) == 23:
+        # add missing wrist joints if needed
+        joint_names = joint_names[:19] \
+            + ["left_wrist_roll_joint", "left_wrist_pitch_joint", "left_wrist_yaw_joint"] \
+            + joint_names[19:] \
+            + ["right_wrist_roll_joint", "right_wrist_pitch_joint", "right_wrist_yaw_joint"]
+        joint_pos = np.zeros((motion_data["joints"].shape[0], 29), dtype=np.float32)
+        joint_pos[:, :19] = motion_data["joints"][:, :19]
+        joint_pos[:, 22:26] = motion_data["joints"][:, 19:]
+    else:
+        joint_pos = motion_data["joints"]  # (N, 29)
+        
     src_npz = {
-        "joint_names": motion_data["joint_names"].tolist(),
-        "joint_pos": motion_data["joints"],  # (N, 29)
+        "joint_names": joint_names,
+        "joint_pos": joint_pos,  # (N, 29)
         "base_pos_w": motion_data["root_pos"],  # (N, 3)
         "base_quat_w": motion_data["root_quat"][..., [3, 0, 1, 2]],  # (N, 4), wxyz order
-        "framerate": motion_data["fps"],
+        "framerate": framerate,
     }
 
     with open(urdf) as f:

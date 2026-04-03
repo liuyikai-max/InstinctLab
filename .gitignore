@@ -30,6 +30,7 @@ docker/artifacts/
 *.tmp
 logs
 outputs
+data
 
 # Isaac-Sim packman
 _isaac_sim*

@@ -7,5 +7,12 @@
 
 python scripts/instinct_rl/train.py \
     --headless \
-    --task=Instinct-BeyondMimic-Plane-X2T2D5-v0 \
-    --num_envs=16384 \
+    --task=Instinct-Perceptive-Shadowing-X2T2D5-v0 \
+    --num_envs=1024 \
+    # --resume --load_run=<RUN_ID> \
+    # --distributed \
+
+# python scripts/instinct_rl/train.py \
+#     --headless \
+#     --task=Instinct-BeyondMimic-Plane-X2T2D5-v0 \
+#     --num_envs=16384 \

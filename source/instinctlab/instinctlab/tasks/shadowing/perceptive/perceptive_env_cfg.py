@@ -528,8 +528,10 @@ class EventsCfg:
             "base_ang_vel_ratio": 1.0,
             # Pose randomization (+-5cm position, +-6degrees rotation)
             "randomize_pose_range": {
-                "x": (-0.15, 0.15),
-                "y": (-0.15, 0.15),
+                # "x": (-0.15, 0.15),
+                # "y": (-0.15, 0.15),
+                "x": (-0.0, 0.0),
+                "y": (-0.0, 0.0),
                 "z": (-0.0, 0.0),
             },
             # Velocity randomization (+-0.1 m/s linear, +-0.1 rad/s angular)

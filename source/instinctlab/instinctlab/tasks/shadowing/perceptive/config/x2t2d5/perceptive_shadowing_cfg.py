@@ -22,7 +22,7 @@ from instinctlab.motion_reference.motion_files.terrain_motion_cfg import Terrain
 from instinctlab.motion_reference.utils import motion_interpolate_bilinear
 from instinctlab.sensors import get_link_prim_targets
 
-MOTION_FOLDER = "/home/agiuser/projects/InstinctLab/data/videomimic/megahunter_megasam_reconstruction_results_anthony_apr21_IMG_5551_cam01_frame_0_350_subsample_1"
+MOTION_FOLDER = "/home/agiuser/projects/InstinctLab/data/videomimic/megahunter_megasam_reconstruction_results_sitting_standing_cam01_frame_0_250_subsample_2"
 
 
 @configclass
@@ -105,8 +105,8 @@ class X2T2D5PerceptiveShadowingEnvCfg(perceptual_cfg.PerceptiveShadowingEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         
-        self.scene.height_scanner.prim_path="{ENV_REGEX_NS}/Robot/base_link"
-        self.scene.camera.prim_path="{ENV_REGEX_NS}/Robot/base_link"
+        # self.scene.height_scanner.prim_path="{ENV_REGEX_NS}/Robot/base_link"
+        # self.scene.camera.prim_path="{ENV_REGEX_NS}/Robot/base_link"
         self.scene.camera.offset.pos = (
             0.04764571478 + 0.0039635 - 0.0042 * math.cos(math.radians(48)) + 0.05,
             0.015,

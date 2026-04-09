@@ -104,28 +104,36 @@ def convert_file(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--src", type=str, help="Input file or folder")
-    parser.add_argument("--tgt", type=str, help="Target file or folder. Structure preserved if folder")
+    parser.add_argument(
+        "--tgt",
+        type=str,
+        default=None,
+        help="(Deprecated) output is always saved alongside each source file.",
+    )
     parser.add_argument("--num_cpus", default=10)
 
     args = parser.parse_args()
 
-    # walk through the source folder and make folders in target folder if needed
+    # recursively find all retarget_poses_x2t2d5.h5 and save outputs alongside each source file
     src_tgt_pairs = []
     if os.path.isfile(args.src):
-        src_tgt_pairs.append((args.src, args.tgt))
+        if os.path.basename(args.src) != "retarget_poses_x2t2d5.h5":
+            raise ValueError(f"Expected file name retarget_poses_x2t2d5.h5, but got: {args.src}")
+        src_tgt_pairs.append(
+            (
+                args.src,
+                os.path.join(os.path.dirname(args.src), "retarget_poses_x2t2d5_retargeted.npz"),
+            )
+        )
     else:
-        if not os.path.exists(args.tgt):
-            os.makedirs(args.tgt, exist_ok=True)
         for root, _, filenames in os.walk(args.src):
-            target_dirpath = os.path.join(args.tgt, os.path.relpath(root, args.src))
-            os.makedirs(target_dirpath, exist_ok=True)
             for filename in filenames:
-                if not filename.endswith(".h5"):
+                if filename != "retarget_poses_x2t2d5.h5":
                     continue
                 src_tgt_pairs.append(
                     (
                         os.path.join(root, filename),
-                        os.path.join(target_dirpath, filename.replace(".h5", "_retargeted.npz")),
+                        os.path.join(root, "retarget_poses_x2t2d5_retargeted.npz"),
                     )
                 )
 

@@ -6,9 +6,9 @@
 
 python source/instinctlab/instinctlab/tasks/shadowing/play.py \
     --task=Instinct-Perceptive-Shadowing-X2T2D5-Play-v0 \
-    --load_run=/home/agiuser/projects/InstinctLab/logs/instinct_rl/x2t2d5_perceptive_shadowing/20260408_203439_x2t2d5Perceptive_concatMotionBins \
+    --load_run=/home/agiuser/projects/InstinctLab/logs/instinct_rl/x2t2d5_perceptive_shadowing/20260408_134139_x2t2d5Perceptive_concatMotionBins__GPU7 \
     --video \
-    --video_length=1000
+    --video_length=2000
 
 # python scripts/instinct_rl/play.py \
 #     --task=Instinct-BeyondMimic-Plane-X2T2D5-Play-v0 \

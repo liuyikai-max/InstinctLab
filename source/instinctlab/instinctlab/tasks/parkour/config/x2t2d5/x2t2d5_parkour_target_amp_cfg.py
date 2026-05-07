@@ -1,8 +1,11 @@
 import copy
 import os
+import math
 
 from isaaclab.envs import ViewerCfg
 from isaaclab.utils import configclass
+from isaaclab.managers import RewardTermCfg as RewTerm
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
 
 import instinctlab.tasks.parkour.mdp as mdp
@@ -16,6 +19,7 @@ from instinctlab.motion_reference.motion_files.amass_motion_cfg import AmassMoti
 from instinctlab.motion_reference.utils import motion_interpolate_bilinear
 from instinctlab.sensors import get_link_prim_targets, NoisyGroupedRayCasterCameraCfg
 from instinctlab.tasks.parkour.config.parkour_env_cfg import ROUGH_TERRAINS_CFG, ParkourEnvCfg
+from instinctlab.managers import MultiRewardCfg
 
 __file_dir__ = os.path.dirname(os.path.realpath(__file__))
 
@@ -34,9 +38,9 @@ class AmassMotionCfg(AmassMotionCfgBase):
 
 
 motion_reference_cfg = MotionReferenceManagerCfg(
-    prim_path="{ENV_REGEX_NS}/Robot/torso_link",
+    prim_path="{ENV_REGEX_NS}/Robot/base_link",
     robot_model_path=X2T2D5_CYLINDER_CFG.spawn.asset_path,
-    reference_prim_path="/World/envs/env_.*/RobotReference/torso_link",
+    reference_prim_path="/World/envs/env_.*/RobotReference/base_link",
     symmetric_augmentation_link_mapping=None,
     symmetric_augmentation_joint_mapping=None,
     symmetric_augmentation_joint_reverse_buf=None,
@@ -72,7 +76,160 @@ for sub_terrain_name, sub_terrain_cfg in ROUGH_TERRAINS_CFG_PLAY.sub_terrains.it
 
 
 @configclass
-class X2T2D5ParkourRoughEnvCfg(ParkourEnvCfg):   
+class X2T2D5Rewards:
+    """Reward terms for the MDP."""
+
+    # Task rewards
+    track_lin_vel_xy_exp = RewTerm(
+        func=mdp.track_lin_vel_xy_exp,
+        weight=2.0,
+        params={"command_name": "base_velocity", "std": 0.5},
+    )
+    track_ang_vel_z_exp = RewTerm(
+        func=mdp.track_ang_vel_z_exp, weight=2.0, params={"command_name": "base_velocity", "std": 0.5}
+    )
+    heading_error = RewTerm(func=mdp.heading_error, weight=-1.0, params={"command_name": "base_velocity"})
+    dont_wait = RewTerm(func=mdp.dont_wait, weight=-0.5, params={"command_name": "base_velocity"})
+    is_alive = RewTerm(func=mdp.is_alive, weight=3.0)
+    stand_still = RewTerm(func=mdp.stand_still, weight=-0.3, params={"command_name": "base_velocity", "offset": 4.0})
+
+    # Regularization rewards
+    volume_points_penetration = RewTerm(
+        func=mdp.volume_points_penetration,
+        weight=-4.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("leg_volume_points"),
+        },
+    )
+    feet_air_time = RewTerm(
+        func=mdp.feet_air_time,
+        weight=0.5,
+        params={
+            "command_name": "base_velocity",
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "vel_threshold": 0.15,
+        },
+    )
+    feet_slide = RewTerm(
+        func=mdp.contact_slide,
+        weight=-0.4,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "threshold": 1.0,
+        },
+    )
+    joint_deviation_hip = RewTerm(
+        func=mdp.joint_deviation_square,
+        weight=-0.5,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_yaw_joint", ".*_hip_roll_joint"])},
+    )
+    ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+    dof_torques_l2 = RewTerm(
+        func=mdp.joint_torques_l2,
+        weight=-1.5e-7,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"])},
+    )
+    dof_acc_l2 = RewTerm(
+        func=mdp.joint_acc_l2,
+        weight=-1.25e-7,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
+    )
+    dof_vel_l2 = RewTerm(
+        func=mdp.joint_vel_l2,
+        weight=-1e-4,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
+    )
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.005)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-3.0)
+    pelvis_orientation_l2 = RewTerm(
+        func=mdp.link_orientation, weight=-3.0, params={"asset_cfg": SceneEntityCfg("robot", body_names="base_link")}
+    )
+    feet_flat_ori = RewTerm(
+        func=mdp.feet_orientation_contact,
+        weight=-0.4,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+        },
+    )
+    feet_at_plane = RewTerm(
+        func=mdp.feet_at_plane,
+        weight=-0.1,
+        params={
+            "contact_sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_ankle_roll_link"),
+            "left_height_scanner_cfg": SceneEntityCfg("left_height_scanner"),
+            "right_height_scanner_cfg": SceneEntityCfg("right_height_scanner"),
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "height_offset": 0.035,
+        },
+    )
+    feet_close_xy = RewTerm(
+        func=mdp.feet_close_xy_gauss,
+        weight=0.4,
+        params={
+            "threshold": 0.12,
+            "asset_cfg": SceneEntityCfg("robot", body_names=".*_ankle_roll_link"),
+            "std": math.sqrt(0.05),
+        },
+    )
+    energy = RewTerm(
+        func=mdp.motors_power_square,
+        weight=-5e-5,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_hip_.*", ".*_knee_joint", ".*_ankle_.*"]),
+            "normalize_by_stiffness": True,
+        },
+    )
+    freeze_upper_body = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.004,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot", joint_names=[".*_shoulder_.*", ".*_elbow_.*", ".*_wrist.*", "waist_.*"]
+            ),
+        },
+    )
+
+    # Safety rewards
+    dof_pos_limits = RewTerm(
+        func=mdp.joint_pos_limits,
+        weight=-1.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
+    )
+    dof_vel_limits = RewTerm(
+        func=mdp.joint_vel_limits,
+        weight=-1.0,
+        params={"soft_ratio": 0.9, "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])},
+    )
+    torque_limits = RewTerm(
+        func=mdp.applied_torque_limits_by_ratio,
+        weight=-0.01,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"]),
+            "limit_ratio": 0.8,
+        },
+    )
+    undesired_contacts = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=-1.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names="(?!.*_ankle_roll_link).*"),
+            "threshold": 1.0,
+        },
+    )
+
+
+@configclass
+class RewardsCfg(MultiRewardCfg):
+    rewards: X2T2D5Rewards = X2T2D5Rewards()
+
+
+@configclass
+class X2T2D5ParkourRoughEnvCfg(ParkourEnvCfg):
+    # MDP settings
+    rewards: RewardsCfg = RewardsCfg()
+    
     def __post_init__(self):
         # post init of parent
         super().__post_init__()

@@ -9,15 +9,14 @@ import numpy as np
 def _derive_output_path(src_path: str) -> str:
 	"""Create same-directory output path with the x2t2d5 suffix."""
 	base = os.path.basename(src_path)
-	if not base.endswith(".npz"):
-		raise ValueError(f"Expected input file to end with .npz, got: {src_path}")
-
 	if base.endswith("-retargeted.npz"):
 		prefix = base[: -len("-retargeted.npz")]
 		tgt_path = os.path.join(os.path.dirname(src_path), f"{prefix}-x2t2d5-retargeted.npz")
+	elif base.endswith("_retargetted.npz"):
+		prefix = base[: -len("_retargetted.npz")]
+		tgt_path = os.path.join(os.path.dirname(src_path), f"{prefix}_x2t2d5_retargetted.npz")
 	else:
-		prefix = base[: -len(".npz")]
-		tgt_path = os.path.join(os.path.dirname(src_path), f"{prefix}-x2t2d5.npz")
+		raise ValueError(f"Expected input file to end with -retargeted.npz or _retargetted.npz, got: {src_path}")
 
 	return tgt_path
 

@@ -6,6 +6,7 @@ import isaaclab.envs.mdp as mdp
 from isaaclab.envs import ViewerCfg
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
+from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
 
 import instinctlab.envs.mdp as instinct_mdp
 import instinctlab.tasks.shadowing.mdp as shadowing_mdp
@@ -20,9 +21,9 @@ from instinctlab.motion_reference import MotionReferenceManagerCfg
 from instinctlab.motion_reference.motion_files.amass_motion_cfg import AmassMotionCfg as AmassMotionCfgBase
 from instinctlab.motion_reference.motion_files.terrain_motion_cfg import TerrainMotionCfg as TerrainMotionCfgBase
 from instinctlab.motion_reference.utils import motion_interpolate_bilinear
-from instinctlab.sensors import get_link_prim_targets
+from instinctlab.sensors import get_link_prim_targets, NoisyGroupedRayCasterCameraCfg
 
-MOTION_FOLDER = "/home/agiuser/projects/Instinct/InstinctLab/data/20251116_50cm_kneeClimbStep1/50cm_kneeClimbStep_noWall"
+MOTION_FOLDER = "/home/agiuser/projects/Instinct/InstinctLab/data/yikai0508/03-rrt"
 
 
 @configclass
@@ -105,15 +106,26 @@ class X2T2D5PerceptiveShadowingEnvCfg(perceptual_cfg.PerceptiveShadowingEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         
-        # self.scene.height_scanner.prim_path="{ENV_REGEX_NS}/Robot/base_link"
-        # self.scene.camera.prim_path="{ENV_REGEX_NS}/Robot/base_link"
-        self.scene.camera.offset.pos = (
-            0.04764571478 + 0.0039635 - 0.0042 * math.cos(math.radians(48)) + 0.05,
-            0.015,
-            0.46268178553 - 0.044 + 0.0042 * math.sin(math.radians(48)) + 0.016,
-        )
-        
+        # camera
+        self.scene.camera.max_distance = 6.0
+        self.scene.camera.update_period = 1 / 30
         self.scene.camera.mesh_prim_paths.extend(get_link_prim_targets(X2T2D5_LINKS))
+        self.scene.camera.pattern_cfg = PinholeCameraPatternCfg(
+            focal_length=1.0,
+            horizontal_aperture=1.8556,  # fovx
+            vertical_aperture=1.0441,  # fovy
+            height=int(270 / 10),
+            width=int(480 / 10),
+        )
+        self.scene.camera.offset=NoisyGroupedRayCasterCameraCfg.OffsetCfg(
+            pos=(
+                0.0576096 + 0.0083477, # add the offset between torso_link and head_pitch_link
+                -0.0111832,
+                -0.0483697 + 0.3982971, # add the offset between torso_link and head_pitch_link
+            ),
+            rot=(0.640857, -0.298835, -0.298835, 0.640857),
+            convention="opengl",
+        )
 
         self.scene.robot.actuators = X2T2D5_CYLINDER_CFG.actuators
         # self.scene.robot.spawn.rigid_props.max_depenetration_velocity = 0.3
@@ -137,6 +149,8 @@ class X2T2D5PerceptiveShadowingEnvCfg(perceptual_cfg.PerceptiveShadowingEnvCfg):
                 self.scene.motion_reference.motion_buffers[MOTION_NAME].path, "metadata.yaml"
             )
 
+        self.sim.physx.gpu_max_rigid_patch_count = 20 * 2**16
+        
         # match key links for observation terms
         self.observations.critic.link_pos.params["asset_cfg"].body_names = self.scene.motion_reference.link_of_interests
         self.observations.critic.link_rot.params["asset_cfg"].body_names = self.scene.motion_reference.link_of_interests

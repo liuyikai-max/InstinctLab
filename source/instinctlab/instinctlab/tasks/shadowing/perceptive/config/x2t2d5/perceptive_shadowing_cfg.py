@@ -22,7 +22,7 @@ from instinctlab.motion_reference.motion_files.terrain_motion_cfg import Terrain
 from instinctlab.motion_reference.utils import motion_interpolate_bilinear
 from instinctlab.sensors import get_link_prim_targets
 
-MOTION_FOLDER = "/home/agiuser/projects/InstinctLab/data/videomimic/megahunter_megasam_reconstruction_results_sitting_standing_cam01_frame_0_250_subsample_2"
+MOTION_FOLDER = "/home/agiuser/projects/Instinct/InstinctLab/data/20251116_50cm_kneeClimbStep1/50cm_kneeClimbStep_noWall"
 
 
 @configclass

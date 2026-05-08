@@ -260,6 +260,8 @@ class X2T2D5ParkourRoughEnvCfg(ParkourEnvCfg):
         self.scene.motion_reference = motion_reference_cfg
         
         self.actions.joint_pos.scale = X2T2D5_ACTION_SCALE
+        
+        self.sim.physx.gpu_max_rigid_patch_count = 20 * 2**16
 
 
 @configclass

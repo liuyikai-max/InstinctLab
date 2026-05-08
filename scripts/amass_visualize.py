@@ -63,6 +63,11 @@ if args_cli.debug:
 VIEWER_CFG = ViewerCfg()
 VIEWER_CFG.resolution = (640, 360)
 
+# camera offset relative to the robot's base (in world frame), and look-at offset
+CAMERA_FOLLOW_EYE_OFFSET = np.array([2.5, 2.5, 1.5])
+CAMERA_FOLLOW_TARGET_OFFSET = np.array([0.0, 0.0, 0.5])
+CAMERA_FOLLOW_ENV_IDX = 0
+
 # ratio between the step_dt and sim_dt
 DECIMATION = 4
 
@@ -86,7 +91,7 @@ class AmassMotionCfg(AmassMotionCfgBase):
 @configclass
 class SceneCfg(InteractiveSceneCfg):
     # common scene entities
-    ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
+    ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg(size=(1000.0, 1000.0)))
     dome_light = AssetBaseCfg(
         prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
     )
@@ -184,6 +189,12 @@ def run_simulator(sim: SimulationContext, scene: InteractiveScene):
             reset_env_ids = torch.where(reset_mask)[0]
             motion_reference.reset(reset_env_ids)
             print("[INFO] current motion", motion_reference.get_current_motion_identifiers(reset_env_ids))
+
+        # update follow camera to track the robot's base
+        robot_base_pos = motion_reference_frame.base_pos_w[CAMERA_FOLLOW_ENV_IDX, 0].cpu().numpy()
+        cam_eye = robot_base_pos + CAMERA_FOLLOW_EYE_OFFSET
+        cam_target = robot_base_pos + CAMERA_FOLLOW_TARGET_OFFSET
+        sim.set_camera_view(cam_eye.tolist(), cam_target.tolist())
 
         # Perform render not physics steps
         sim.render()

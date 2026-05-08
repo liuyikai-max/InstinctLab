@@ -98,7 +98,7 @@ motion_reference_cfg = MotionReferenceManagerCfg(
 @configclass
 class X2T2D5PerceptiveShadowingEnvCfg(perceptual_cfg.PerceptiveShadowingEnvCfg):
     scene: perceptual_cfg.PerceptiveShadowingSceneCfg = perceptual_cfg.PerceptiveShadowingSceneCfg(
-        num_envs=4096,
+        num_envs=2048,
         robot=X2T2D5_CYLINDER_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot"),
         motion_reference=motion_reference_cfg,
     )

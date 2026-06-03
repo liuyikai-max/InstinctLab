@@ -23,7 +23,10 @@ from instinctlab.motion_reference.motion_files.terrain_motion_cfg import Terrain
 from instinctlab.motion_reference.utils import motion_interpolate_bilinear
 from instinctlab.sensors import get_link_prim_targets, NoisyGroupedRayCasterCameraCfg
 
-MOTION_FOLDER = "/home/agiuser/projects/Instinct/InstinctLab/data/yikai0508/03-rrt"
+MOTION_FOLDER = os.environ.get(
+    "MOTION_FOLDER",
+    "/home/agiuser/projects/Instinct/InstinctLab/data/perceptive_shadowing_x2/jumpsit",
+)
 
 
 @configclass

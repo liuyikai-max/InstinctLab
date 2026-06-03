@@ -106,6 +106,7 @@ import instinctlab.tasks  # noqa: F401
 from instinctlab.managers.reward_manager import MultiRewardManager
 from instinctlab.utils.wrappers import InstinctRlVecEnvWrapper
 from instinctlab.utils.wrappers.instinct_rl import InstinctRlOnPolicyRunnerCfg
+from instinctlab.utils.exporter import export_policy_as_onnx
 
 # wait for attach if in debug mode
 if args_cli.debug:
@@ -233,11 +234,24 @@ def main():
     if agent_cfg.load_run is not None:
         export_model_dir = os.path.join(log_dir, "exported")
         if args_cli.exportonnx:
-            assert env.unwrapped.num_envs == 1, "Exporting to ONNX is only supported for single environment."
-            if not os.path.exists(export_model_dir):
-                os.makedirs(export_model_dir)
-            obs, infos = env.get_observations()
-            ppo_runner.export_as_onnx(obs, export_model_dir)
+            export_policy_as_onnx(
+                export_model_dir,
+                env.unwrapped,
+                ppo_runner.alg.actor_critic,
+                normalizer=ppo_runner.normalizers["policy"],
+            )
+            # assert env.unwrapped.num_envs == 1, "Exporting to ONNX is only supported for single environment."
+            # if not os.path.exists(export_model_dir):
+            #     os.makedirs(export_model_dir)
+            # obs, infos = env.get_observations()
+            # ppo_runner.export_as_onnx(obs, export_model_dir)
+    
+    # # Test ONNX export by running inference with ONNX Runtime
+    # import numpy as np
+    # import onnxruntime as ort
+    # ort_execution_providers = ort.get_available_providers()
+    # policy_path = os.path.join(export_model_dir, "policy.onnx")
+    # ort_sessions = ort.InferenceSession(policy_path, providers=ort_execution_providers)
 
     # reset environment
     obs, infos = env.get_observations()
@@ -252,6 +266,11 @@ def main():
         with torch.inference_mode():
             # agent stepping
             actions = policy(obs)
+            
+            # # Test ONNX export by running inference with ONNX Runtime
+            # ort_actions = ort_sessions.run(None, {"obs": obs.cpu().numpy(), "time_step": np.ones((1,1), dtype=np.float32)*timestep})[0]
+            # actions = torch.from_numpy(ort_actions).to(obs.device)
+            
             # get teacher actions
             if teacher_policy is not None:
                 teacher_actions = teacher_policy(infos["observations"]["critic"])
